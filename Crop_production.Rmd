@@ -1,0 +1,169 @@
+---
+title: "Crop Production"
+author: "Ido Bar"
+date: "`r Sys.Date()`"
+output: 
+    bookdown::html_document2:
+#      css: "style/style.css"
+      toc: true
+      toc_float: true
+      toc_depth: 3
+      highlight: pygments
+      number_sections: false
+      code_folding: hide
+---
+
+```{r setup, include=FALSE}
+pacman::p_load(tidyverse, ggpubr, paletteer, fontawesome, janitor,
+               scales, here, plotly, downloadthis, cowplot, showtext)
+pacman::p_load_gh("Mikata-Project/ggthemr", update = FALSE)
+devtools::source_gist("7f63547158ecdbacf31b54a58af0d1cc", filename = "util.R")
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE,
+	out.width="100%",
+	fig.height = 5,
+	fig.width = 8
+)
+# add custom font
+# font_add_google("Ubuntu", "ubuntu")
+# showtext_auto()
+# default text size in plots
+def_text_size <- 14
+# default theme in plots
+clean_theme <-  ggthemr("flat", layout = "clean", 
+                                 text_size = def_text_size, set_theme = FALSE)
+# see also https://www.awe.gov.au/abares/research-topics/agricultural-outlook/data#2021
+
+```
+
+### Tropical Fruit Production
+This data was collected from the [Australian Horticulture Statistics Handbook 2020/21](https://www.horticulture.com.au/growers/help-your-business-grow/research-reports-publications-fact-sheets-and-more/grower-resources/ha18002-assets/australian-horticulture-statistics-handbook) to support the Papaya breeding activities funded by Hort Innovation (PP18000 -- Papaya Breeding Program, AS19003 -- Genetics of Fruit Sensory Profiles).
+
+```{r tropical-fruits-data, include=FALSE}
+# read data
+tropical_fruit_data <- readxl::read_excel("data/tropical_fruit_production_value.xlsx") %>% 
+  mutate(State=factor(State, levels = c("QLD", "NSW", "VIC", "NT",  "WA", "TAS", "SA")))
+
+# crop_data %>% filter(Crop=="Papaya", !is.na(Yield)) %>% 
+#   mutate(yield_prop=Yield/sum(Yield)) 
+
+
+state_cols <- levels(tropical_fruit_data$State) %>% 
+  set_names(c("#741128", "#88CFEC", "#DBEBE7", "#C35E00", "#FFD800", "#0645AD", "#FF0000"), .)
+
+crop_sum <- tropical_fruit_data %>% group_by(Crop) %>% 
+  summarise(Yield=sum(Yield, na.rm=TRUE), Value=sum(Value, na.rm=TRUE)) %>%
+  arrange(desc(Value)) 
+
+crop_sum %>% 
+  adorn_totals() %>% 
+  write_xlsx(., "crop_production_value.xlsx", sheet = "summary", overwritesheet = TRUE)
+
+```
+
+```{r tropical-fruits-figure, fig.cap="Production of Papaya, Strawberry, Mango and Pineapple<br>Data source: [Australian Horticulture Statistics Handbook 2020/21](https://www.horticulture.com.au/growers/help-your-business-grow/research-reports-publications-fact-sheets-and-more/grower-resources/ha18002-assets/australian-horticulture-statistics-handbook), Hort Innovation"}
+# plot data
+#pale_theme <- ggthemr::ggthemr(palette = "pale", set_theme = FALSE, text_size = 16)
+fruit_plot <- ggplot(tropical_fruit_data %>% mutate(Crop=factor(Crop, levels = rev(crop_sum$Crop))), 
+             aes(x = Crop,  y = Yield/1000)) +
+  geom_bar(mapping = aes(fill = State), stat = "identity", width=0.4) + 
+  geom_point(data = crop_sum, mapping = aes(y=Value/4e6), size=4, shape = 24, fill = "lightskyblue") +
+  # scale_shape_manual(values = 21:24) + 
+  scale_y_continuous(name = "Yield (kt)", expand = expansion(mult = c(0, .1)),
+                     labels = comma, sec.axis = sec_axis( trans=~.*4, name="Value (M$)")) +
+  scale_fill_manual(values = state_cols) +
+  # scale_fill_paletteer_d("RColorBrewer::Set1", drop=FALSE) + 
+ # labs(title = "Production of Papaya, Strawberry, Mango and Pineapple")  +
+  clean_theme$theme
+fruit_plot + theme_cowplot(def_text_size) +
+  background_grid(major = "y", minor = "y") +
+  theme(#text = element_text(family = "ubuntu"),
+        axis.title.y.left = element_text(margin = unit(c(0, 3, 0, 0), "mm")),
+        axis.title.y.right = element_text(margin = unit(c(0, 0, 0, 3), "mm")))
+  # theme_cowplot(16)
+# ggsave("plots/tropical_fruits_production_value.pdf", width=7, height = 5)
+
+# gg + # scale_fill_paletteer_d("rcartocolor::Bold", drop=FALSE) +
+#   scale_x_date(NULL, breaks = breaks_width("2 month"),
+#                labels = label_date_short()) +
+#   # guides(color = guide_legend(override.aes = list(size = 1, 
+#   #                                                 linetype=c(3, rep(1, nlevels(comparative_vacs_data$Country)-1)))) ) +
+#   # labs(colour = "Country") + 
+#   # theme_bw()
+#   theme_cowplot(16) +
+#   background_grid(major = "y", minor = "y") 
+download_this(fruit_plot,
+                output_name = "tropical_fruits_production_value",
+              output_extension = ".pdf",
+              button_label = "Download image as pdf file",
+              button_type = "success",
+              has_icon = TRUE,
+              icon = "fa fa-save",
+              self_contained = FALSE)
+```
+
+
+### Chickpea Production Data
+Chickpea production data was obtained from [Agricultural commodities and trade data](https://www.awe.gov.au/abares/research-topics/agricultural-outlook/data#australian-crop-report-data) at the Department of Agriculture, Water and the Environment, Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES).
+
+```{r chickpea-data, include=FALSE}
+states <- set_names(c("QLD", "NSW", "VIC", "SA", "WA"), c("Queensland", "New South Wales", "Victoria", "South Australia", "Western Australia"))
+
+st_cols <- paletteer_d("tidyquant::tq_dark", n = length(states)) %>% as.character() %>% 
+  setNames(c("WA", "QLD", "VIC", "SA", "NSW")) %>% 
+  .[rev(states)]
+
+prod_data <- readxl::read_excel("data/Chickpea_production_1989_2022.xlsx", sheet = "Chickpea_prod_updated") %>% 
+  tidyr::pivot_longer(where(is.double), names_to = "Period", values_to = "value") %>% 
+  tidyr::pivot_wider(names_from = Measure, values_from = value) %>% 
+  mutate(Period=sub(" (\\w)$", "(\\1)", Period)) %>% 
+  mutate(State_abbr=factor(states[State], levels = rev(states)),
+         State=factor(State, levels = names(rev(states))))
+
+period <- unique(prod_data$Period)
+# make breaks (always show last period
+period_breaks <- period[seq_along(period)%%2==!(length(period)%%2==0)]
+
+
+```
+
+```{r chickpea-prod, fig.cap="Chickpea production data 1989-2022<br>Data source: [Agricultural commodities and trade data](https://www.awe.gov.au/abares/research-topics/agricultural-outlook/data#australian-crop-report-data), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
+# plot stacked bar graph
+g <- ggplot(prod_data, aes(x=Period, y=Production, fill=State_abbr, group=State_abbr)) +
+  # geom_line(size=1) +
+  geom_bar(stat = "identity", width = 0.5) +
+  # geom_line(size=1.5) +
+  # scale_fill_paletteer_d("tidyquant::tq_dark") + 
+  # scale_fill_brewer(palette = "Set1", direction = -1) +
+  scale_fill_manual(values = st_cols) +
+  scale_x_discrete(breaks=period_breaks,
+                   guide = guide_axis(check.overlap = TRUE,
+                                      angle = -45)) +
+  scale_y_continuous(expand = expansion(add = c(0, 200)), labels = scales::comma) + # ggsci, category10_d3 ; ggthemes, wsj_colors6 ; "RColorBrewer::Set1"
+  # coord_cartesian(ylim = c(-25, 2200)) + 
+  labs(x="Reporting Period", y="Production (kt)", 
+       fill="State") +
+  # coord_flip(expand = FALSE, ylim = c(-25, 2200)) +
+  clean_theme$theme
+g + theme_cowplot(def_text_size) +
+  background_grid(major = "y", minor = "y") +
+  theme(text = element_text(family = "ubuntu"),
+        axis.title.y.left = element_text(margin = unit(c(0, 3, 0, 0), "mm")),
+        axis.title.y.right = element_text(margin = unit(c(0, 0, 0, 3), "mm")))
+download_this(g,
+                output_name = "chickpea_production",
+              output_extension = ".pdf",
+              button_label = "Download image as pdf file",
+              button_type = "success",
+              has_icon = TRUE,
+              icon = "fa fa-save",
+              self_contained = FALSE)
+# interactive graph
+# ggplotly(g)
+```
+
+
+
+

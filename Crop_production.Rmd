@@ -11,6 +11,7 @@ output:
       highlight: pygments
       number_sections: false
       code_folding: hide
+      keep_md: false
 ---
 
 ```{r setup, include=FALSE}
@@ -59,7 +60,8 @@ crop_sum <- tropical_fruit_data %>% group_by(Crop) %>%
 
 crop_sum %>% 
   adorn_totals() %>% 
-  write_xlsx(., "crop_production_value.xlsx", sheet = "summary", overwritesheet = TRUE)
+  write_xlsx(., "data/crop_production_value.xlsx", sheet = "summary", 
+             overwritesheet = TRUE)
 
 ```
 

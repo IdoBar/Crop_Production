@@ -40,7 +40,7 @@ clean_theme <-  ggthemr("flat", layout = "clean",
 ```
 
 ### Tropical Fruit Production
-This data was collected from the [Australian Horticulture Statistics Handbook 2020/21](https://www.horticulture.com.au/growers/help-your-business-grow/research-reports-publications-fact-sheets-and-more/grower-resources/ha18002-assets/australian-horticulture-statistics-handbook) to support the Papaya breeding activities funded by Hort Innovation (PP18000 -- Papaya Breeding Program, AS19003 -- Genetics of Fruit Sensory Profiles).
+This data was collected from the [Australian Horticulture Statistics Handbook 2020/21](https://www.horticulture.com.au/growers/help-your-business-grow/research-reports-publications-fact-sheets-and-more/grower-resources/ha18002-assets/australian-horticulture-statistics-handbook) to support the Papaya breeding activities funded by Hort Innovation (PP18000 -- Papaya Breeding Program, AS19003 -- Genetics of Fruit Sensory Profiles, AS21006 -- Building an advanced genomics platform for Australian horticulture).
 
 ```{r tropical-fruits-data, include=FALSE}
 # read data
@@ -117,12 +117,17 @@ st_cols <- paletteer_d("tidyquant::tq_dark", n = length(states)) %>% as.characte
   setNames(c("WA", "QLD", "VIC", "SA", "NSW")) %>% 
   .[rev(states)]
 
+chickpea_values <- readxl::read_excel("data/Chickpea_production_1989_2022.xlsx", sheet = "Chickpea_prices_yr") 
+
 prod_data <- readxl::read_excel("data/Chickpea_production_1989_2022.xlsx", sheet = "Chickpea_prod_updated") %>% 
   tidyr::pivot_longer(where(is.double), names_to = "Period", values_to = "value") %>% 
   tidyr::pivot_wider(names_from = Measure, values_from = value) %>% 
+  left_join(chickpea_values) %>% 
   mutate(Period=sub(" (\\w)$", "(\\1)", Period)) %>% 
   mutate(State_abbr=factor(states[State], levels = rev(states)),
-         State=factor(State, levels = names(rev(states))))
+         State=factor(State, levels = names(rev(states)))) 
+
+
 
 period <- unique(prod_data$Period)
 # make breaks (always show last period
@@ -132,18 +137,22 @@ period_breaks <- period[seq_along(period)%%2==!(length(period)%%2==0)]
 ```
 
 ```{r chickpea-prod, fig.cap="Chickpea production data 1989-2022<br>Data source: [Agricultural commodities and trade data](https://www.awe.gov.au/abares/research-topics/agricultural-outlook/data#australian-crop-report-data), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
+# multiplier for secondary y-axis
+coeff <- 1
 # plot stacked bar graph
 g <- ggplot(prod_data, aes(x=Period, y=Production, fill=State_abbr, group=State_abbr)) +
   # geom_line(size=1) +
   geom_bar(stat = "identity", width = 0.5) +
-  # geom_line(size=1.5) +
+  geom_line(mapping = aes(y=Price*coeff), size=0.75, color="lightskyblue4") +
   # scale_fill_paletteer_d("tidyquant::tq_dark") + 
   # scale_fill_brewer(palette = "Set1", direction = -1) +
   scale_fill_manual(values = st_cols) +
   scale_x_discrete(breaks=period_breaks,
                    guide = guide_axis(check.overlap = TRUE,
                                       angle = -45)) +
-  scale_y_continuous(expand = expansion(add = c(0, 200)), labels = scales::comma) + # ggsci, category10_d3 ; ggthemes, wsj_colors6 ; "RColorBrewer::Set1"
+  scale_y_continuous(name = "Production (kt)",
+                     expand = expansion(add = c(0, 200)), labels = scales::comma,
+                     sec.axis = sec_axis(~./coeff, name="Price ($AUD/t)", labels = scales::comma)) + # ggsci, category10_d3 ; ggthemes, wsj_colors6 ; "RColorBrewer::Set1"
   # coord_cartesian(ylim = c(-25, 2200)) + 
   labs(x="Reporting Period", y="Production (kt)", 
        fill="State") +
@@ -151,7 +160,7 @@ g <- ggplot(prod_data, aes(x=Period, y=Production, fill=State_abbr, group=State_
   clean_theme$theme
 g + theme_cowplot(def_text_size) +
   background_grid(major = "y", minor = "y") +
-  theme(text = element_text(family = "ubuntu"),
+  theme(#text = element_text(family = "ubuntu"),
         axis.title.y.left = element_text(margin = unit(c(0, 3, 0, 0), "mm")),
         axis.title.y.right = element_text(margin = unit(c(0, 0, 0, 3), "mm")))
 download_this(g,

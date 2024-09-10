@@ -68,7 +68,7 @@ crop_sum %>%
 
 ```
 
-```{r tropical-fruits-figure, fig.cap="Production of Papaya, Strawberry, Mango and Pineapple<br>Data source: [Australian Horticulture Statistics Handbook 2020/21](https://www.horticulture.com.au/growers/help-your-business-grow/research-reports-publications-fact-sheets-and-more/grower-resources/ha18002-assets/australian-horticulture-statistics-handbook), Hort Innovation"}
+```{r tropical-fruits-figure, fig.cap="Production of Papaya, Strawberry, Mango and Pineapple (2020-21)<br>Data source: [Australian Horticulture Statistics Handbook 2020/21](https://www.horticulture.com.au/growers/help-your-business-grow/research-reports-publications-fact-sheets-and-more/grower-resources/ha18002-assets/australian-horticulture-statistics-handbook), Hort Innovation"}
 # plot data
 #pale_theme <- ggthemr::ggthemr(palette = "pale", set_theme = FALSE, text_size = 16)
 fruit_plot <- ggplot(tropical_fruit_data %>% mutate(Crop=factor(Crop, levels = rev(crop_sum$Crop))), 

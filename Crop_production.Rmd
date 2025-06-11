@@ -121,7 +121,8 @@ st_cols <- paletteer_d("tidyquant::tq_dark", n = length(states)) %>% as.characte
   setNames(c("WA", "QLD", "VIC", "SA", "NSW")) %>% 
   .[rev(states)]
 
-chickpea_values <- readxl::read_excel(chickies_prod_file, sheet = "Chickpea_prices_yr") 
+chickpea_values <- readxl::read_excel(chickies_prod_file, sheet = "Chickpea_prices_yr") %>% 
+  select(Period, Price)
 
 prod_data <- readxl::read_excel(chickies_prod_file, sheet = "Chickpea_prod_updated") %>% 
   tidyr::pivot_longer(where(is.double), names_to = "Period", values_to = "value") %>% 
@@ -140,7 +141,7 @@ period_breaks <- period[seq_along(period)%%2==!(length(period)%%2==0)]
 
 ```
 
-```{r chickpea-prod2, fig.cap="Chickpea production data 1989-2022<br>Data source: [Agricultural commodities and trade data](https://www.awe.gov.au/abares/research-topics/agricultural-outlook/data#australian-crop-report-data), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
+```{r chickpea-prod2, fig.cap="Chickpea production data 1989-2025<br>Data source: [Agricultural commodities and trade data](https://www.awe.gov.au/abares/research-topics/agricultural-outlook/data#australian-crop-report-data), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
 # multiplier for secondary y-axis
 # plot stacked bar graph
 gg <- ggplot(prod_data, aes(x=Period, y=Production, fill=State_abbr, group=State_abbr)) +
@@ -179,7 +180,7 @@ download_this(gg,
 
 With price of chickpea overlaid.
 
-```{r chickpea-prod, fig.cap="Chickpea production and price data 1989-2022<br>Data source: [Agricultural commodities and trade data](https://www.awe.gov.au/abares/research-topics/agricultural-outlook/data#australian-crop-report-data), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
+```{r chickpea-prod, fig.cap="Chickpea production and price data 1989-2025<br>Data source: [Agricultural commodities and trade data](https://www.awe.gov.au/abares/research-topics/agricultural-outlook/data#australian-crop-report-data), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
 # multiplier for secondary y-axis
 coeff <- 1
 # plot stacked bar graph

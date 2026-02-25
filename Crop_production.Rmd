@@ -141,7 +141,7 @@ period_breaks <- period[seq_along(period)%%2==!(length(period)%%2==0)]
 
 ```
 
-```{r chickpea-prod2, fig.cap="Chickpea production data 1989-2025<br>Data source: [Agricultural commodities and trade data](https://www.awe.gov.au/abares/research-topics/agricultural-outlook/data#australian-crop-report-data), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
+```{r chickpea-prod2, fig.cap="Chickpea production data 1989-2026<br>Data source: [Agricultural commodities and trade data](https://www.agriculture.gov.au/abares/research-topics/agricultural-outlook/data#agricultural-commodities), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
 # multiplier for secondary y-axis
 # plot stacked bar graph
 gg <- ggplot(prod_data, aes(x=Period, y=Production, fill=State_abbr, group=State_abbr)) +
@@ -178,9 +178,9 @@ download_this(gg,
 # ggplotly(g)
 ```
 
-With price of chickpea overlaid.
+#### Chickpea production With price of overlaid
 
-```{r chickpea-prod, fig.cap="Chickpea production and price data 1989-2025<br>Data source: [Agricultural commodities and trade data](https://www.awe.gov.au/abares/research-topics/agricultural-outlook/data#australian-crop-report-data), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
+```{r chickpea-prod, fig.cap="Chickpea production and price data 1989-2026<br>Data source: [Agricultural commodities and trade data](https://www.agriculture.gov.au/abares/research-topics/agricultural-outlook/data#agricultural-commodities), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
 # multiplier for secondary y-axis
 coeff <- 1
 # plot stacked bar graph

@@ -178,7 +178,7 @@ download_this(gg,
 # ggplotly(g)
 ```
 
-#### Chickpea production With price of overlaid
+#### Chickpea production and price 
 
 ```{r chickpea-prod, fig.cap="Chickpea production and price data 1989-2026<br>Data source: [Agricultural commodities and trade data](https://www.agriculture.gov.au/abares/research-topics/agricultural-outlook/data#agricultural-commodities), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
 # multiplier for secondary y-axis

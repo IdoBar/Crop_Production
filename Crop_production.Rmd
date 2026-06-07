@@ -16,7 +16,8 @@ output:
 
 ```{r setup, include=FALSE}
 my_paks <- c("tidyverse", "ggpubr", "paletteer", "fontawesome", "janitor", "pacman",
-             "scales", "here", "plotly", "downloadthis", "cowplot", "showtext", "Mikata-Project/ggthemr")
+             "scales", "here", "plotly", "downloadthis", "cowplot", "showtext", 'ggtext',
+             'formatR', "Mikata-Project/ggthemr")
 # pak::pak(my_paks)
 pacman::p_load(char = basename(my_paks))
 # pacman::p_load_gh("Mikata-Project/ggthemr", update = FALSE)
@@ -25,6 +26,8 @@ knitr::opts_chunk$set(
 	echo = FALSE,
 	message = FALSE,
 	warning = FALSE,
+	tidy = TRUE, 
+	tidy.opts = list(width.cutoff = 60),
 	out.width="100%",
 	fig.height = 5,
 	fig.width = 8
@@ -110,44 +113,65 @@ download_this(fruit_plot,
 ```
 
 
-### Chickpea Production Data
-Chickpea production data was obtained from [Agricultural commodities and trade data](https://www.awe.gov.au/abares/research-topics/agricultural-outlook/data#australian-crop-report-data) at the Department of Agriculture, Water and the Environment, Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES).
+### Pulse Production Data
+Pulse production data (1989-90 to 2026-27) was obtained from [Agricultural commodities and trade data](https://www.awe.gov.au/abares/research-topics/agricultural-outlook/data#australian-crop-report-data) at the Department of Agriculture, Water and the Environment, Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES).
 
-```{r chickpea-data, include=FALSE}
-chickies_prod_file <- recent_file("data", pattern = "Chickpea_production_.+.xlsx")
-states <- set_names(c("QLD", "NSW", "VIC", "SA", "WA"), c("Queensland", "New South Wales", "Victoria", "South Australia", "Western Australia"))
+```{r pulse-data, include=FALSE}
+pulse_prod_file <- recent_file("data", pattern = "Pulse_production_.+.xlsx")
+pulse_prod_sheets <- readxl::excel_sheets(pulse_prod_file)
+states <- set_names(c("QLD", "NSW", "VIC", "SA", "WA"), 
+                    c("Queensland", "New South Wales", "Victoria",
+                      "South Australia", "Western Australia"))
 
 st_cols <- paletteer_d("tidyquant::tq_dark", n = length(states)) %>% as.character() %>% 
   setNames(c("WA", "QLD", "VIC", "SA", "NSW")) %>% 
   .[rev(states)]
+line_col <- "dodgerblue4" # 
+# c("aquamarine4", "cyan4", "dodgerblue4")
+pulses <- c("Chickpea", "Lentil", "Faba")
+pulse_value <- map(pulses, .f = ~{p = .x
+                    readxl::read_excel(pulse_prod_file, 
+                                       sheet = glue::glue("{p}_prices_yr")) %>%
+                    select(Period, Price, Value) %>% 
+                    mutate(Crop=p,
+                           Period=sub(" (\\w)$", "(\\1)", Period))}) %>% list_rbind()
 
-chickpea_values <- readxl::read_excel(chickies_prod_file, sheet = "Chickpea_prices_yr") %>% 
-  select(Period, Price)
+# pulse_value %>% pivot_wider(names_from = Crop, values_from = Price)
+pulse_prod_data <- map(pulses, .f = ~{p=.x
+                          readxl::read_excel(pulse_prod_file, 
+                                             sheet = glue::glue("{p}_prod_recent")) %>%
+                          mutate(Crop=p) %>% 
+                          tidyr::pivot_longer(where(is.double), 
+                                              names_to = "Period", values_to = "value") %>% 
+                          tidyr::pivot_wider(names_from = Measure, values_from = value)}
+                          ) %>% list_rbind() %>% 
+        mutate(Period=sub(" (\\w)$", "(\\1)", Period), 
+                State_abbr=factor(states[State], levels = states),
+                State=factor(State, levels = names(states))) 
 
-prod_data <- readxl::read_excel(chickies_prod_file, sheet = "Chickpea_prod_updated") %>% 
-  tidyr::pivot_longer(where(is.double), names_to = "Period", values_to = "value") %>% 
-  tidyr::pivot_wider(names_from = Measure, values_from = value) %>% 
-  left_join(chickpea_values) %>% 
-  mutate(Period=sub(" (\\w)$", "(\\1)", Period)) %>% 
-  mutate(State_abbr=factor(states[State], levels = rev(states)),
-         State=factor(State, levels = names(rev(states)))) 
 
 
-
-period <- unique(prod_data$Period)
+period <- unique(pulse_prod_data$Period)
 # make breaks (always show last period
 period_breaks <- period[seq_along(period)%%2==!(length(period)%%2==0)]
 
+# pulse_prod_data %>% group_by(Period, Crop) %>% summarise(sum(Production))
 
 ```
 
-```{r chickpea-prod2, fig.cap="Chickpea production data 1989-2026<br>Data source: [Agricultural commodities and trade data](https://www.agriculture.gov.au/abares/research-topics/agricultural-outlook/data#agricultural-commodities), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
+#### Chickpea production
+
+```{r chickpea-prod2, fig.cap="Chickpea production (1989-90 to 2026-27)<br>Data source: [Agricultural commodities and trade data](https://www.agriculture.gov.au/abares/research-topics/agricultural-outlook/data#agricultural-commodities), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
 # multiplier for secondary y-axis
 # plot stacked bar graph
-gg <- ggplot(prod_data, aes(x=Period, y=Production, fill=State_abbr, group=State_abbr)) +
+chick_plot <- ggplot(pulse_prod_data %>% filter(Crop=="Chickpea"), 
+                     aes(x=Period, y=Production)) +
+              
+   # geom_line(size=1) +
+  geom_col( width = 0.5, aes(fill=State_abbr, group=State_abbr)) +
   # geom_line(size=1) +
-  geom_bar(stat = "identity", width = 0.5) +
-  # geom_line(mapping = aes(y=Price*coeff), size=0.75, color="lightskyblue4") +
+  # geom_col(width = 0.5) +
+  # geom_line(mapping = aes(y=Price*coeff), size=0.75, color=line_col) +
   # scale_fill_paletteer_d("tidyquant::tq_dark") + 
   # scale_fill_brewer(palette = "Set1", direction = -1) +
   scale_fill_manual(values = st_cols) +
@@ -161,12 +185,12 @@ gg <- ggplot(prod_data, aes(x=Period, y=Production, fill=State_abbr, group=State
        fill="State") +
   # coord_flip(expand = FALSE, ylim = c(-25, 2200)) +
   clean_theme$theme
-gg + theme_cowplot(def_text_size) +
+chick_plot + theme_cowplot(def_text_size) +
   background_grid(major = "y", minor = "y") +
   theme(#text = element_text(family = "ubuntu"),
         axis.title.y.left = element_text(margin = unit(c(0, 3, 0, 0), "mm")),
         axis.title.y.right = element_text(margin = unit(c(0, 0, 0, 3), "mm")))
-download_this(gg,
+download_this(chick_plot,
                 output_name = "chickpea_production",
               output_extension = ".pdf",
               button_label = "Download image as pdf file",
@@ -178,16 +202,49 @@ download_this(gg,
 # ggplotly(g)
 ```
 
-#### Chickpea production and price 
+#### Chickpea production and value 
 
-```{r chickpea-prod, fig.cap="Chickpea production and price data 1989-2026<br>Data source: [Agricultural commodities and trade data](https://www.agriculture.gov.au/abares/research-topics/agricultural-outlook/data#agricultural-commodities), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
+```{r chickpea-prod, fig.cap="Chickpea production and value (1989-90 to 2026-27)<br>Data source: [Agricultural commodities and trade data](https://www.agriculture.gov.au/abares/research-topics/agricultural-outlook/data#agricultural-commodities), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
 # multiplier for secondary y-axis
 coeff <- 1
 # plot stacked bar graph
-g <- ggplot(prod_data, aes(x=Period, y=Production, fill=State_abbr, group=State_abbr)) +
+chick_value_plot <- chick_plot +
+  geom_line(data =pulse_value %>% filter(Crop=="Chickpea"),
+            mapping = aes(y=Value*coeff, group=1), size=0.75, color=line_col) +
+  # scale_fill_paletteer_d("tidyquant::tq_dark") + 
+  # scale_fill_brewer(palette = "Set1", direction = -1) +
+  scale_y_continuous(name = "Production (kt)",
+                     expand = expansion(add = c(0, 200)), labels = scales::comma,
+                     sec.axis = sec_axis(~./coeff, name="Value ($m AUD)", labels = scales::comma))  # ggsci, category10_d3 ; ggthemes, wsj_colors6 ; "RColorBrewer::Set1"
+  # coord_cartesian(ylim = c(-25, 2200)) + 
+
+chick_value_plot + theme_cowplot(def_text_size) +
+  background_grid(major = "y", minor = "y") +
+  theme(#text = element_text(family = "ubuntu"),
+        axis.title.y.left = element_text(margin = unit(c(0, 3, 0, 0), "mm")),
+        axis.title.y.right = element_text(margin = unit(c(0, 0, 0, 3), "mm")))
+download_this(chick_value_plot,
+                output_name = "chickpea_production",
+              output_extension = ".pdf",
+              button_label = "Download image as pdf file",
+              button_type = "success",
+              has_icon = TRUE,
+              icon = "fa fa-save",
+              self_contained = FALSE)
+# interactive graph
+# ggplotly(g)
+```
+
+#### Lentil production
+
+```{r lentil-prod2, fig.cap="Lentil production (1989-90 to 2026-27)<br>Data source: [Agricultural commodities and trade data](https://www.agriculture.gov.au/abares/research-topics/agricultural-outlook/data#agricultural-commodities), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
+# multiplier for secondary y-axis
+# plot stacked bar graph
+lentil_prod_plot <- ggplot(pulse_prod_data %>% filter(Crop=="Lentil"), aes(x=Period, y=Production)) +
+                       # aes(fill=State_abbr, group=State_abbr) +
   # geom_line(size=1) +
-  geom_bar(stat = "identity", width = 0.5) +
-  geom_line(mapping = aes(y=Price*coeff), size=0.75, color="lightskyblue4") +
+  geom_col(width = 0.5, aes(fill=State_abbr, group=State_abbr)) +
+  # geom_line(mapping = aes(y=Price*coeff), size=0.75, color=line_col) +
   # scale_fill_paletteer_d("tidyquant::tq_dark") + 
   # scale_fill_brewer(palette = "Set1", direction = -1) +
   scale_fill_manual(values = st_cols) +
@@ -195,20 +252,19 @@ g <- ggplot(prod_data, aes(x=Period, y=Production, fill=State_abbr, group=State_
                    guide = guide_axis(check.overlap = TRUE,
                                       angle = -45)) +
   scale_y_continuous(name = "Production (kt)",
-                     expand = expansion(add = c(0, 200)), labels = scales::comma,
-                     sec.axis = sec_axis(~./coeff, name="Price ($AUD/t)", labels = scales::comma)) + # ggsci, category10_d3 ; ggthemes, wsj_colors6 ; "RColorBrewer::Set1"
+                     expand = expansion(add = c(0, 200)), labels = scales::comma) + # ggsci, category10_d3 ; ggthemes, wsj_colors6 ; "RColorBrewer::Set1"
   # coord_cartesian(ylim = c(-25, 2200)) + 
   labs(x="Reporting Period", y="Production (kt)", 
        fill="State") +
   # coord_flip(expand = FALSE, ylim = c(-25, 2200)) +
   clean_theme$theme
-g + theme_cowplot(def_text_size) +
+lentil_prod_plot + theme_cowplot(def_text_size) +
   background_grid(major = "y", minor = "y") +
   theme(#text = element_text(family = "ubuntu"),
         axis.title.y.left = element_text(margin = unit(c(0, 3, 0, 0), "mm")),
         axis.title.y.right = element_text(margin = unit(c(0, 0, 0, 3), "mm")))
-download_this(g,
-                output_name = "chickpea_production",
+download_this(lentil_prod_plot,
+                output_name = "lentil_production",
               output_extension = ".pdf",
               button_label = "Download image as pdf file",
               button_type = "success",
@@ -219,7 +275,111 @@ download_this(g,
 # ggplotly(g)
 ```
 
+#### Lentil production and value 
 
+```{r lentil-prod, fig.cap="Lentil production and value (1989-90 to 2026-27)<br>Data source: [Agricultural commodities and trade data](https://www.agriculture.gov.au/abares/research-topics/agricultural-outlook/data#agricultural-commodities), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
+# multiplier for secondary y-axis
+coeff <- 1
+# plot stacked bar graph
+lentil_value_plot <- lentil_prod_plot +
+  geom_line(data =pulse_value %>% filter(Crop=="Lentil"),
+            mapping = aes(y=Value*coeff, group=1), size=0.75, color=line_col) +
+  # scale_fill_paletteer_d("tidyquant::tq_dark") + 
+  # scale_fill_brewer(palette = "Set1", direction = -1) +
+  scale_y_continuous(name = "Production (kt)",
+                     expand = expansion(add = c(0, 200)), labels = scales::comma,
+                     sec.axis = sec_axis(~./coeff, name="Value ($m AUD)", labels = scales::comma))  # ggsci, category10_d3 ; ggthemes, wsj_colors6 ; "RColorBrewer::Set1"
+  # coord_cartesian(ylim = c(-25, 2200)) + 
+
+lentil_value_plot + theme_cowplot(def_text_size) +
+  background_grid(major = "y", minor = "y") +
+  theme(#text = element_text(family = "ubuntu"),
+        axis.title.y.left = element_text(margin = unit(c(0, 3, 0, 0), "mm")),
+        axis.title.y.right = element_text(margin = unit(c(0, 0, 0, 3), "mm")))
+download_this(lentil_value_plot,
+                output_name = "lentil_production_value",
+              output_extension = ".pdf",
+              button_label = "Download image as pdf file",
+              button_type = "success",
+              has_icon = TRUE,
+              icon = "fa fa-save",
+              self_contained = FALSE)
+# interactive graph
+# ggplotly(g)
+```
+
+#### Faba bean production
+
+```{r faba-prod2, fig.cap="Faba bean production (1989-90 to 2026-27)<br>Data source: [Agricultural commodities and trade data](https://www.agriculture.gov.au/abares/research-topics/agricultural-outlook/data#agricultural-commodities), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
+# multiplier for secondary y-axis
+# plot stacked bar graph
+faba_prod_plot <- ggplot(pulse_prod_data %>% filter(Crop=="Faba"), aes(x=Period, y=Production)) +
+                       # aes(fill=State_abbr, group=State_abbr) +
+  # geom_line(size=1) +
+  geom_col(width = 0.5, aes(fill=State_abbr, group=State_abbr)) +
+  # geom_line(mapping = aes(y=Price*coeff), size=0.75, color=line_col) +
+  # scale_fill_paletteer_d("tidyquant::tq_dark") + 
+  # scale_fill_brewer(palette = "Set1", direction = -1) +
+  scale_fill_manual(values = st_cols) +
+  scale_x_discrete(breaks=period_breaks,
+                   guide = guide_axis(check.overlap = TRUE,
+                                      angle = -45)) +
+  scale_y_continuous(name = "Production (kt)",
+                     expand = expansion(add = c(0, 200)), labels = scales::comma) + # ggsci, category10_d3 ; ggthemes, wsj_colors6 ; "RColorBrewer::Set1"
+  # coord_cartesian(ylim = c(-25, 2200)) + 
+  labs(x="Reporting Period", y="Production (kt)", 
+       fill="State") +
+  # coord_flip(expand = FALSE, ylim = c(-25, 2200)) +
+  clean_theme$theme
+faba_prod_plot + theme_cowplot(def_text_size) +
+  background_grid(major = "y", minor = "y") +
+  theme(#text = element_text(family = "ubuntu"),
+        axis.title.y.left = element_text(margin = unit(c(0, 3, 0, 0), "mm")),
+        axis.title.y.right = element_text(margin = unit(c(0, 0, 0, 3), "mm")))
+download_this(faba_prod_plot,
+                output_name = "cfaba_production",
+              output_extension = ".pdf",
+              button_label = "Download image as pdf file",
+              button_type = "success",
+              has_icon = TRUE,
+              icon = "fa fa-save",
+              self_contained = FALSE)
+# interactive graph
+# ggplotly(g)
+```
+
+#### Faba bean production and value 
+
+```{r faba-prod, fig.cap="Faba bean production and value (1989-90 to 2026-27)<br>Data source: [Agricultural commodities and trade data](https://www.agriculture.gov.au/abares/research-topics/agricultural-outlook/data#agricultural-commodities), Australian Bureau of Agricultural and Resource Economics and Sciences (ABARES)"}
+# multiplier for secondary y-axis
+coeff <- 1
+# plot stacked bar graph
+faba_value_plot <- faba_prod_plot +
+  geom_line(data =pulse_value %>% filter(Crop=="Faba"),
+            mapping = aes(y=Value*coeff, group=1), size=0.75, color=line_col) +
+  # scale_fill_paletteer_d("tidyquant::tq_dark") + 
+  # scale_fill_brewer(palette = "Set1", direction = -1) +
+  scale_y_continuous(name = "Production (kt)",
+                     expand = expansion(add = c(0, 200)), labels = scales::comma,
+                     sec.axis = sec_axis(~./coeff, name="Value ($m AUD)", labels = scales::comma))  # ggsci, category10_d3 ; ggthemes, wsj_colors6 ; "RColorBrewer::Set1"
+  # coord_cartesian(ylim = c(-25, 2200)) + 
+
+faba_value_plot + theme_cowplot(def_text_size) +
+  background_grid(major = "y", minor = "y") +
+  theme(#text = element_text(family = "ubuntu"),
+        axis.title.y.left = element_text(margin = unit(c(0, 3, 0, 0), "mm")),
+        axis.title.y.right = element_text(margin = unit(c(0, 0, 0, 3), "mm")))
+download_this(faba_value_plot,
+                output_name = "faba_production_value",
+              output_extension = ".pdf",
+              button_label = "Download image as pdf file",
+              button_type = "success",
+              has_icon = TRUE,
+              icon = "fa fa-save",
+              self_contained = FALSE)
+# interactive graph
+# ggplotly(g)
+```
 
 
 
